@@ -8,6 +8,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--input_pkl", required=True)
     parser.add_argument("--output_dir", required=True)
+    parser.add_argument("--prefix", default="beauty_global")
     args = parser.parse_args()
 
     os.makedirs(args.output_dir, exist_ok=True)
@@ -21,12 +22,10 @@ def main():
     print("valid users:", sum(len(valid[u]) > 0 for u in range(1, usernum + 1)))
     print("test users:", sum(len(test[u]) > 0 for u in range(1, usernum + 1)))
 
-    # 1. Items observed in train
     train_items = set()
     for u in range(1, usernum + 1):
         train_items.update(train[u])
 
-    # 2. Remove validation cold items with respect to train
     valid_nocold = copy.deepcopy(valid)
     removed_valid = 0
 
@@ -37,12 +36,10 @@ def main():
                 valid_nocold[u] = []
                 removed_valid += 1
 
-    # 3. Items observed in train + filtered validation
     train_valid_items = set(train_items)
     for u in range(1, usernum + 1):
         train_valid_items.update(valid_nocold[u])
 
-    # 4. Remove test cold items with respect to train + validation
     test_nocold = copy.deepcopy(test)
     removed_test = 0
 
@@ -61,16 +58,10 @@ def main():
     print("max valid len:", max(len(valid_nocold[u]) for u in range(1, usernum + 1)))
     print("max test len:", max(len(test_nocold[u]) for u in range(1, usernum + 1)))
 
-    # 5. Save no-cold split for tuning:
-    # train -> validation model selection
-    out_nocold = os.path.join(args.output_dir, "beauty_global_nocold.pkl")
+    out_nocold = os.path.join(args.output_dir, f"{args.prefix}_nocold.pkl")
     with open(out_nocold, "wb") as f:
         pickle.dump([train, valid_nocold, test_nocold, usernum, itemnum], f)
 
-    # 6. Build train+validation split for final test evaluation:
-    # train = original train + filtered validation
-    # valid = empty
-    # test = filtered test
     trainval = copy.deepcopy(train)
     valid_empty = {u: [] for u in range(1, usernum + 1)}
 
@@ -78,7 +69,7 @@ def main():
         if len(valid_nocold[u]) > 0:
             trainval[u] = trainval[u] + valid_nocold[u]
 
-    out_trainval = os.path.join(args.output_dir, "beauty_global_nocold_trainval.pkl")
+    out_trainval = os.path.join(args.output_dir, f"{args.prefix}_nocold_trainval.pkl")
     with open(out_trainval, "wb") as f:
         pickle.dump([trainval, valid_empty, test_nocold, usernum, itemnum], f)
 
