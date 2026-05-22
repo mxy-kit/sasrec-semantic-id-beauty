@@ -1,140 +1,141 @@
-import argparse
-import os
-import pickle
-import random
-import time
-
 import numpy as np
 import torch
-import torch.nn as nn
-
-from model_sasrec_ce import SASRecCE
 
 
-def sample_batch(train, usernum, maxlen, batch_size):
-    seqs = np.zeros((batch_size, maxlen), dtype=np.int64)
-    labels = np.zeros((batch_size, maxlen), dtype=np.int64)
+class PointWiseFeedForward(torch.nn.Module):
+    def __init__(self, hidden_units, dropout_rate):
+        super(PointWiseFeedForward, self).__init__()
 
-    users = []
-    while len(users) < batch_size:
-        u = random.randint(1, usernum)
-        if len(train[u]) >= 2:
-            users.append(u)
+        self.conv1 = torch.nn.Conv1d(hidden_units, hidden_units, kernel_size=1)
+        self.dropout1 = torch.nn.Dropout(p=dropout_rate)
+        self.relu = torch.nn.ReLU()
+        self.conv2 = torch.nn.Conv1d(hidden_units, hidden_units, kernel_size=1)
+        self.dropout2 = torch.nn.Dropout(p=dropout_rate)
 
-    for i, u in enumerate(users):
-        items = train[u]
-        idx = maxlen - 1
-        nxt = items[-1]
-
-        for item in reversed(items[:-1]):
-            seqs[i, idx] = item
-            labels[i, idx] = nxt
-            nxt = item
-            idx -= 1
-
-            if idx < 0:
-                break
-
-    return seqs, labels
+    def forward(self, inputs):
+        outputs = self.dropout2(
+            self.conv2(
+                self.relu(
+                    self.dropout1(
+                        self.conv1(inputs.transpose(-1, -2))
+                    )
+                )
+            )
+        )
+        outputs = outputs.transpose(-1, -2)
+        return outputs
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset", required=True)
-    parser.add_argument("--train_dir", required=True)
+class SASRecCE(torch.nn.Module):
+    def __init__(self, user_num, item_num, args):
+        super(SASRecCE, self).__init__()
 
-    parser.add_argument("--batch_size", default=128, type=int)
-    parser.add_argument("--lr", default=0.001, type=float)
-    parser.add_argument("--maxlen", default=50, type=int)
-    parser.add_argument("--hidden_units", default=100, type=int)
-    parser.add_argument("--num_blocks", default=2, type=int)
-    parser.add_argument("--num_epochs", default=100, type=int)
-    parser.add_argument("--num_heads", default=2, type=int)
-    parser.add_argument("--dropout_rate", default=0.2, type=float)
-    parser.add_argument("--l2_emb", default=0.0, type=float)
-    parser.add_argument("--device", default="cuda")
-    parser.add_argument("--save_every", default=10, type=int)
-    parser.add_argument("--norm_first", action="store_true")
-    parser.add_argument("--seed", default=42, type=int)
-    args = parser.parse_args()
+        self.user_num = user_num
+        self.item_num = item_num
+        self.dev = args.device
+        self.norm_first = args.norm_first
 
-    random.seed(args.seed)
-    np.random.seed(args.seed)
-    torch.manual_seed(args.seed)
-    torch.cuda.manual_seed_all(args.seed)
+        self.item_emb = torch.nn.Embedding(
+            self.item_num + 1,
+            args.hidden_units,
+            padding_idx=0
+        )
+        self.pos_emb = torch.nn.Embedding(
+            args.maxlen + 1,
+            args.hidden_units,
+            padding_idx=0
+        )
+        self.emb_dropout = torch.nn.Dropout(p=args.dropout_rate)
 
-    data_path = f"data/{args.dataset}.pkl"
+        self.attention_layernorms = torch.nn.ModuleList()
+        self.attention_layers = torch.nn.ModuleList()
+        self.forward_layernorms = torch.nn.ModuleList()
+        self.forward_layers = torch.nn.ModuleList()
 
-    with open(data_path, "rb") as f:
-        train, valid, test, usernum, itemnum = pickle.load(f)
+        self.last_layernorm = torch.nn.LayerNorm(args.hidden_units, eps=1e-8)
 
-    print("usernum:", usernum)
-    print("itemnum:", itemnum)
-    seq_lens = [len(train[u]) for u in range(1, usernum + 1) if len(train[u]) > 0]
-    print("average sequence length:", np.mean(seq_lens))
-
-    out_dir = f"{args.dataset}_{args.train_dir}"
-    os.makedirs(out_dir, exist_ok=True)
-
-    model = SASRecCE(usernum, itemnum, args).to(args.device)
-    optimizer = torch.optim.Adam(
-        model.parameters(),
-        lr=args.lr,
-        betas=(0.9, 0.98),
-        weight_decay=args.l2_emb,
-    )
-    criterion = nn.CrossEntropyLoss()
-
-    trainable_users = [u for u in range(1, usernum + 1) if len(train[u]) >= 2]
-    steps_per_epoch = max(1, sum(max(0, len(train[u]) - 1) for u in trainable_users) // args.batch_size)
-
-    start_time = time.time()
-
-    for epoch in range(1, args.num_epochs + 1):
-        model.train()
-        losses = []
-
-        for _ in range(steps_per_epoch):
-            seq_np, labels_np = sample_batch(
-                train=train,
-                usernum=usernum,
-                maxlen=args.maxlen,
-                batch_size=args.batch_size,
+        for _ in range(args.num_blocks):
+            self.attention_layernorms.append(
+                torch.nn.LayerNorm(args.hidden_units, eps=1e-8)
             )
 
-            seq = torch.LongTensor(seq_np).to(args.device)
-            labels = torch.LongTensor(labels_np).to(args.device)
-
-            logits = model(seq)
-
-            mask = labels > 0
-            if mask.sum() == 0:
-                continue
-
-            loss = criterion(logits[mask], labels[mask])
-
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-
-            losses.append(loss.item())
-
-        mean_loss = float(np.mean(losses)) if losses else 0.0
-        print(f"mean CE loss in epoch {epoch}: {mean_loss:.6f}")
-
-        if epoch % args.save_every == 0 or epoch == args.num_epochs:
-            ckpt_name = (
-                f"SASRecCE.epoch={epoch}.lr={args.lr}."
-                f"layer={args.num_blocks}.head={args.num_heads}."
-                f"hidden={args.hidden_units}.maxlen={args.maxlen}.pth"
+            self.attention_layers.append(
+                torch.nn.MultiheadAttention(
+                    args.hidden_units,
+                    args.num_heads,
+                    args.dropout_rate
+                )
             )
-            ckpt_path = os.path.join(out_dir, ckpt_name)
-            torch.save(model.state_dict(), ckpt_path)
-            print("saved checkpoint:", ckpt_name)
 
-    print("Done")
-    print("elapsed seconds:", round(time.time() - start_time, 2))
+            self.forward_layernorms.append(
+                torch.nn.LayerNorm(args.hidden_units, eps=1e-8)
+            )
 
+            self.forward_layers.append(
+                PointWiseFeedForward(args.hidden_units, args.dropout_rate)
+            )
 
-if __name__ == "__main__":
-    main()
+    def log2feats(self, log_seqs):
+        seqs = self.item_emb(torch.LongTensor(log_seqs).to(self.dev))
+        seqs *= self.item_emb.embedding_dim ** 0.5
+
+        poss = np.tile(
+            np.arange(1, log_seqs.shape[1] + 1),
+            [log_seqs.shape[0], 1]
+        )
+        poss *= (log_seqs != 0)
+
+        seqs += self.pos_emb(torch.LongTensor(poss).to(self.dev))
+        seqs = self.emb_dropout(seqs)
+
+        tl = seqs.shape[1]
+        attention_mask = ~torch.tril(
+            torch.ones((tl, tl), dtype=torch.bool, device=self.dev)
+        )
+
+        for i in range(len(self.attention_layers)):
+            seqs = torch.transpose(seqs, 0, 1)
+
+            if self.norm_first:
+                x = self.attention_layernorms[i](seqs)
+                mha_outputs, _ = self.attention_layers[i](
+                    x, x, x,
+                    attn_mask=attention_mask
+                )
+                seqs = seqs + mha_outputs
+                seqs = torch.transpose(seqs, 0, 1)
+                seqs = seqs + self.forward_layers[i](
+                    self.forward_layernorms[i](seqs)
+                )
+            else:
+                mha_outputs, _ = self.attention_layers[i](
+                    seqs, seqs, seqs,
+                    attn_mask=attention_mask
+                )
+                seqs = self.attention_layernorms[i](seqs + mha_outputs)
+                seqs = torch.transpose(seqs, 0, 1)
+                seqs = self.forward_layernorms[i](
+                    seqs + self.forward_layers[i](seqs)
+                )
+
+        log_feats = self.last_layernorm(seqs)
+
+        return log_feats
+
+    def forward(self, log_seqs):
+        log_feats = self.log2feats(log_seqs)
+        logits = torch.matmul(log_feats, self.item_emb.weight.transpose(0, 1))
+        return logits
+
+    def predict(self, log_seqs, item_indices=None):
+        log_feats = self.log2feats(log_seqs)
+        final_feat = log_feats[:, -1, :]
+
+        if item_indices is None:
+            logits = torch.matmul(final_feat, self.item_emb.weight.transpose(0, 1))
+            return logits
+
+        item_embs = self.item_emb(torch.LongTensor(item_indices).to(self.dev))
+        logits = item_embs.matmul(final_feat.unsqueeze(-1)).squeeze(-1)
+
+        return logits
