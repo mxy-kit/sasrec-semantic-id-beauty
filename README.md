@@ -459,9 +459,17 @@ and evaluated on:
 ```text
 PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
 python train_tiger_global.py \
-  --params configs/tiger_global_behavior_rqkmeans_better_final_trainval_step40000.json
+  --params configs/tiger_global_behavior_rqkmeans_trainval_final.json
 ```
+### 5. Compute bootstrap confidence intervals
 
+```text
+python scripts/eval_semantic_ar.py \
+  --metric_path metric_dumps/test_step_10000_per_user_metrics.json \
+  --seed 42 \
+  --n_bootstrap 1000
+```
+  
 The final metrics are computed for:
 
 - `Recall@5`, `NDCG@5`;
