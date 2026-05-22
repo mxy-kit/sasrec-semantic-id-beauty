@@ -4,9 +4,9 @@ This repository contains the ordinary item-ID SASRec baseline used for next-item
 
 ## Compared Methods
 
-### 1. SASRecCE with Ordinary Item IDs - `sasrec-ce-beauty` 
+### 1). SASRecCE with Ordinary Item IDs - `sasrec-ce-beauty` 
 
-### 2. SASRec-style Model with Semantic IDs - `semantic-ar-beauty` 
+### 2). SASRec-style Model with Semantic IDs - `semantic-ar-beauty` 
 
 ## 1).The setup follows:
 
@@ -450,16 +450,14 @@ python train_tiger_global.py \
 
 ### 4. Final training and test evaluation
 
-After selecting the best validation step, the final model is trained on:
-
-```text
-train + validation
-```
+After selecting the best validation step, the model is trained again on `train + validation` for the selected number of steps
 
 and evaluated on:
 
 ```text
-test
+PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
+python train_tiger_global.py \
+  --params configs/tiger_global_behavior_rqkmeans_better_final_trainval_step40000.json
 ```
 
 The final metrics are computed for:
