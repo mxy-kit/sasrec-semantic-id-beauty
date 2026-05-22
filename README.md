@@ -48,9 +48,10 @@ Run:
 
 ```bash
 python prepare_global_nocold.py \
-  --input_path data/beauty_global.pkl \
+  --input_pkl data/beauty_global.pkl \
   --output_dir data \
   --prefix beauty_global
+
 ```
 
 This creates:
