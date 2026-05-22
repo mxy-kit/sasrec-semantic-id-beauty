@@ -128,9 +128,11 @@ python eval_full_normal_ce.py \
   --seed=42
 ```
 
+
+
 ## Results from our run
 
-SASRecCE ordinary item ID, `h100/h2`, final epoch `10`.
+SASRecCE ordinary item IDs .
 
 | Metric | Value | 95% CI |
 |---|---:|---:|
@@ -140,3 +142,15 @@ SASRecCE ordinary item ID, `h100/h2`, final epoch `10`.
 | NDCG@10 | 0.0262 | [0.0217, 0.0306] |
 | Recall@100 | 0.1727 | [0.1581, 0.1869] |
 | NDCG@100 | 0.0499 | [0.0449, 0.0549] |
+
+TIGER-like autoregressive prediction with semantic IDs.
+
+| Metric | Value | 95% CI |
+|---|---:|---:|
+| Recall@5 | 0.0328 | [0.0263, 0.0393] |
+| NDCG@5 | 0.0198 | [0.0156, 0.0238] |
+| Recall@10 | 0.0556 | [0.0471, 0.0645] |
+| NDCG@10 | 0.0270 | [0.0225, 0.0314] |
+| Recall@100 | 0.1815 | [0.1669, 0.1957] |
+| NDCG@100 | 0.0535 | [0.0485, 0.0585] |
+
