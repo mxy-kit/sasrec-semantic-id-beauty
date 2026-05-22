@@ -8,7 +8,7 @@ This repository contains the ordinary item-ID SASRec baseline used for next-item
 
 ### 2. SASRec-style Model with Semantic IDs - `semantic-ar-beauty` 
 
-## 1.The setup follows:
+## 1).The setup follows:
 
 - global temporal split 90/5/5;
 - no-cold filtering:
@@ -132,7 +132,7 @@ python eval_full_normal_ce.py \
 
 
 
-## 2.The implementation adapts the TIGER-style idea to the required experimental protocol:
+## 2).The implementation adapts the TIGER-style idea to the required experimental protocol:
 
 - global temporal split `90/5/5`;
 - no-cold filtering;
@@ -146,6 +146,12 @@ python eval_full_normal_ce.py \
 ## Main idea
 
 The original TIGER approach uses semantic IDs and a generative retrieval model.
+
+The original TIGER implementation can be found here:
+
+```text
+https://github.com/NonameUntitled/tiger
+```
 
 In this repository, we adapt the TIGER-style architecture to the required global temporal split and to our own item mapping.
 
@@ -167,7 +173,7 @@ semantic_id(item) = [code_1, code_2, code_3, code_4]
 
 The model then learns to generate the semantic ID of the next item autoregressively.
 
----
+
 
 ## Difference from the original TIGER repository
 
@@ -231,7 +237,6 @@ The trainer was modified to:
 
 This is important because the final test set should not be used during validation-based model selection.
 
----
 
 ## Repository structure
 
@@ -261,7 +266,7 @@ semantic-ar-beauty/
 └── README.md
 ```
 
----
+
 
 ## File descriptions
 
@@ -282,7 +287,7 @@ It is used for:
 - final train+validation training;
 - test evaluation.
 
----
+
 
 ### `modeling/dataset/global_split.py`
 
@@ -302,7 +307,6 @@ Important details:
 - TIGER internal item IDs are 0-based;
 - each validation/test sample contains exactly one holdout target item.
 
----
 
 ### `modeling/trainer/trainer.py`
 
@@ -317,7 +321,7 @@ Compared with the original TIGER trainer, this version:
 
 This is important because the final test set should not be used during validation-based model selection.
 
----
+
 
 ### `scripts/make_global_nocold_split.py`
 
@@ -342,7 +346,6 @@ The second file is used for final training:
 train + validation → test
 ```
 
----
 
 ### `scripts/make_behavior_rqkmeans_index.py`
 
@@ -417,7 +420,7 @@ data/Beauty_global/beauty_global_nocold.pkl
 data/Beauty_global/beauty_global_nocold_trainval.pkl
 ```
 
----
+
 
 ### 2. Generate behavior RQ-KMeans semantic IDs
 
@@ -435,7 +438,6 @@ data/Beauty_global/beauty_item_codes_behavior_rqkmeans_better_ours.npy
 data/Beauty_global/index_behavior_rqkmeans_better_ours.json
 ```
 
----
 
 ### 3. Train TIGER on train split and select by validation
 
@@ -466,7 +468,7 @@ The final metrics are computed for:
 - `Recall@10`, `NDCG@10`;
 
 
----
+
 
 
 
