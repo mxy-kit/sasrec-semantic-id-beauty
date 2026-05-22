@@ -1,6 +1,6 @@
-# SASRecCE on Amazon Beauty 2014
+#  SASRecCE with Ordinary Item IDs and SASRec-style Model with Semantic IDs on Amazon Beauty 2014
 
-This repository contains the ordinary item-ID SASRec baseline used for next-item prediction on Amazon Beauty 2014.
+This repository contains the ordinary item-ID SASRec baseline used for next-item prediction on Amazon Beauty 2014, and also a TIGER-style generative recommendation model under the same global temporal split protocol as the ordinary SASRec baseline.
 
 The setup follows:
 
@@ -11,8 +11,14 @@ The setup follows:
 - one holdout item per evaluated user;
 - full catalog ranking;
 - metrics with 95% bootstrap confidence intervals.
+  
+## Compared Methods
 
-## Files
+### 1. SASRecCE with Ordinary Item IDs - `sasrec-ce-beauty` 
+
+### 2. SASRec-style Model with Semantic IDs - `semantic-ar-beauty` 
+
+## Files of `sasrec-ce-beauty` 
 
 - `prepare_global_nocold.py`  
   Creates no-cold validation/test splits and the train+validation final split.
