@@ -1,0 +1,92 @@
+import json
+import os
+
+import numpy as np
+import torch
+
+from modeling.utils import create_logger, DEVICE
+
+LOGGER = create_logger(name=__name__)
+
+
+class MetricCallback:
+    def __init__(self, tensorboard_writer, on_step):
+        self._tensorboard_writer = tensorboard_writer
+        self._on_step = on_step
+
+    def __call__(self, key, value, step_num, prefix):
+        if step_num % self._on_step == 0:
+            self._tensorboard_writer.add_scalar(
+                f'{prefix}/{key}', value, step_num
+            )
+            self._tensorboard_writer.flush()
+
+
+class InferenceCallback:
+    def __init__(
+            self,
+            tensorboard_writer,
+            step_name,
+            model,
+            dataloader,
+            on_step,
+            pred_prefix,
+            labels_prefix,
+            metrics=None,
+            metric_dump_dir=None,
+    ):
+        self._tensorboard_writer = tensorboard_writer
+        self._step_name = step_name
+        self._model = model
+        self._dataloader = dataloader
+        self._on_step = on_step
+        self._metrics = metrics if metrics is not None else {}
+        self._pred_prefix = pred_prefix
+        self._labels_prefix = labels_prefix
+        self._metric_dump_dir = metric_dump_dir
+
+    def __call__(self, step_num):
+        results = {}
+
+        if step_num % self._on_step == 0:
+            LOGGER.debug(f'Running {self._step_name} on step {step_num}...')
+
+            running_params = {}
+            for metric_name, metric_function in self._metrics.items():
+                running_params[metric_name] = []
+
+            self._model.eval()
+
+            with torch.inference_mode():
+                for batch in self._dataloader:
+                    for key, value in batch.items():
+                        batch[key] = value.to(DEVICE)
+
+                    batch.update(self._model(batch))
+
+                    for metric_name, metric_function in self._metrics.items():
+                        running_params[metric_name].extend(metric_function(
+                            inputs=batch,
+                            pred_prefix=self._pred_prefix,
+                            labels_prefix=self._labels_prefix,
+                        ))
+
+            for label, value in running_params.items():
+                results[label] = np.mean(value)
+
+            if self._metric_dump_dir is not None:
+                os.makedirs(self._metric_dump_dir, exist_ok=True)
+
+                metric_dump_path = os.path.join(
+                    self._metric_dump_dir,
+                    f'{self._step_name}_step_{step_num}_per_user_metrics.json'
+                )
+
+                with open(metric_dump_path, 'w', encoding='utf-8') as f:
+                    json.dump(running_params, f, ensure_ascii=False, indent=2)
+
+                LOGGER.debug(f'Saved per-user metrics to {metric_dump_path}')
+
+            LOGGER.debug(f'Running {self._step_name} on step {step_num} is done!')
+
+        return results
