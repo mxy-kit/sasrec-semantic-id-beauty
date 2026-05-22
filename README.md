@@ -126,7 +126,6 @@ python eval_full_normal_ce.py \
   --num_heads=2 \
   --dropout_rate=0.2 \
   --device=cuda \
-  --k=10 \
   --seed=42
 ```
 
@@ -244,7 +243,8 @@ This is important because the final test set should not be used during validatio
 ```text
 semantic-ar-beauty/
 ├── configs/
-│   └── tiger_global_behavior_rqkmeans_better_final250.json
+│   ├── tiger_global_behavior_rqkmeans_better_final250.json
+│   └── tiger_global_behavior_rqkmeans_trainval_final.json
 ├── modeling/
 │   ├── dataloader/
 │   ├── dataset/
@@ -260,6 +260,7 @@ semantic-ar-beauty/
 │   └── utils/
 ├── scripts/
 │   ├── make_global_nocold_split.py
+│   ├── eval_semantic_ar.py
 │   └── make_behavior_rqkmeans_index.py
 ├── train_sasrec.py
 ├── train_tiger.py
