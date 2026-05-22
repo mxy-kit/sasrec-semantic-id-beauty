@@ -1,0 +1,42 @@
+{
+  "experiment_name": "tiger_global_behavior_rqkmeans_trainval_final",
+  "dataset": {
+    "split_pkl_path": "./data/Beauty_global/beauty_global_nocold_trainval.pkl",
+    "index_json_path": "./data/Beauty_global/index_behavior_rqkmeans_better_ours.json",
+    "num_codebooks": 4,
+    "max_sequence_length": 20,
+    "sampler_type": "tiger",
+    "is_extended": true,
+    "mode": "tune"
+  },
+  "dataloader": {
+    "train_batch_size": 256,
+    "validation_batch_size": 8
+  },
+  "model": {
+    "embedding_dim": 128,
+    "codebook_size": 256,
+    "num_positions": 20,
+    "user_ids_count": 22363,
+    "num_heads": 6,
+    "num_encoder_layers": 4,
+    "num_decoder_layers": 4,
+    "dim_feedforward": 1024,
+    "d_kv": 64,
+    "dropout": 0.1,
+    "activation": "relu",
+    "num_beams": 20,
+    "top_k": 20,
+    "layer_norm_eps": 1e-6,
+    "initializer_range": 0.02
+  },
+  "optimizer": {
+    "lr": 0.0003
+  },
+  "train_epochs_num": 250,
+  "valid_step": 10000,
+  "eval_step": 10000,
+  "best_metric": "ndcg@10",
+  "early_stopping_threshold": 60,
+  "eval_during_train": false
+}
